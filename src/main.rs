@@ -1,37 +1,66 @@
-use std::env;
-use std::net::ipAddr;
+use std::process;
 
-struct arguments {
-    flag: String,
-    ipaddr: IpAddr,
-    threads: u16,
-}
-
-impl Arguments {
-    fn new(args: &Vec<String>) -> Result<arguments, &'static str> {
-        // The minimum number of arguments must be 2. For example,
-        // the name of the binary + the `-h` flag.
-        if args.len() < 2 {
-            return Err("not enough arguments");
-        // The maximum number of arguments is 4. For example,
-        // The name of the binary + `-t` `{num-threads}` `ip-addr`
-        } else if args.len() > 4 {
-            return Err("too many arguments");
-        }
-        return Ok()
-    }
-}
+mod cli;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    for i in &args {
-        println!("{}", i);
+    // For all command line arg related errors, print the error and use exit code 1.
+    let _args = cli::Arguments::new().unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        process::exit(1);
+    });
+}
+
+#[cfg(test)]
+mod test_cli {
+    use assert_cmd::Command;
+
+    const BINARY_NAME: &str = env!("CARGO_PKG_NAME");
+
+    #[test]
+    fn test_missing_ip() {
+        let mut cmd = Command::cargo_bin(BINARY_NAME).unwrap();
+        cmd.assert()
+            .failure()
+            .code(1)
+            .stderr("cli: missing ip address\n");
     }
-    println!("{:?}", args);
 
-    yeet();
+    #[test]
+    fn test_invalid_num_threads() {
+        let mut cmd = Command::cargo_bin(BINARY_NAME).unwrap();
+        cmd.arg("-t")
+            .arg("'-1'")
+            .assert()
+            .failure()
+            .code(1)
+            .stderr("cli: failed to parse uint16 value from number of threads\n");
+    }
 
-    let a = args[0].clone();
+    #[test]
+    fn test_invalid_ip() {
+        let mut cmd = Command::cargo_bin(BINARY_NAME).unwrap();
+        cmd.arg("-i")
+            .arg("127.0.0..")
+            .assert()
+            .failure()
+            .code(1)
+            .stderr("cli: invalid ip address\n");
+    }
 
+    #[test]
+    fn test_valid_ip() {
+        let mut cmd = Command::cargo_bin(BINARY_NAME).unwrap();
+        cmd.arg("-i").arg("127.0.0.1").assert().success();
+    }
 
+    #[test]
+    fn test_valid_with_threads() {
+        let mut cmd = Command::cargo_bin(BINARY_NAME).unwrap();
+        cmd.arg("-t")
+            .arg("10")
+            .arg("-i")
+            .arg("127.0.0.1")
+            .assert()
+            .success();
+    }
 }
