@@ -1,13 +1,16 @@
 use std::process;
 
 mod cli;
+mod port_inspector;
 
 fn main() {
     // For all command line arg related errors, print the error and use exit code 1.
-    let _args = cli::Arguments::new().unwrap_or_else(|err| {
+    let args = cli::Arguments::new().unwrap_or_else(|err| {
         eprintln!("{}", err);
         process::exit(1);
     });
+
+    port_inspector::inspect(args.ip_addr, args.n_threads)
 }
 
 #[cfg(test)]
